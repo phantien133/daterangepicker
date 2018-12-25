@@ -6,6 +6,7 @@
 * @website: http://www.daterangepicker.com/
 */
 // Following the UMD template https://github.com/umdjs/umd/blob/master/templates/returnExportsGlobal.js
+
 (function (root, factory) {
     if (typeof define === 'function' && define.amd) {
         // AMD. Make globaly available as well
@@ -55,6 +56,8 @@
         this.autoUpdateInput = true;
         this.alwaysShowCalendars = false;
         this.ranges = {};
+        this.rangeInDate = false;
+        this.minRange = 0;
 
         this.opens = 'right';
         if (this.element.hasClass('pull-right'))
@@ -162,11 +165,26 @@
         }
         this.container.addClass(this.locale.direction);
 
-        if (typeof options.startDate === 'string')
-            this.startDate = moment(options.startDate, this.locale.format);
+        if (typeof options.timePickerIncrement === 'number')
+            this.timePickerIncrement = options.timePickerIncrement;
 
-        if (typeof options.endDate === 'string')
-            this.endDate = moment(options.endDate, this.locale.format);
+        if (typeof options.startDate === 'string') {
+            var optionDate = moment(options.startDate, this.locale.format);
+            if (optionDate) {
+                var remainder = optionDate.minute() % this.timePickerIncrement;
+                optionDate = optionDate.clone().add(this.timePickerIncrement - remainder, "minutes");
+            }
+            this.startDate = optionDate;
+        }
+
+        if (typeof options.endDate === 'string') {
+            var optionDate = moment(options.endDate, this.locale.format);
+            if (optionDate) {
+                var remainder = optionDate.minute() % this.timePickerIncrement;
+                optionDate = optionDate.clone().add(this.timePickerIncrement - remainder, "minutes");
+            }
+            this.endDate = optionDate;
+        }
 
         if (typeof options.minDate === 'string')
             this.minDate = moment(options.minDate, this.locale.format);
@@ -174,11 +192,23 @@
         if (typeof options.maxDate === 'string')
             this.maxDate = moment(options.maxDate, this.locale.format);
 
-        if (typeof options.startDate === 'object')
-            this.startDate = moment(options.startDate);
+        if (typeof options.startDate === 'object') {
+            var optionDate = moment(options.startDate);
+            if (optionDate) {
+                var remainder = optionDate.minute() % this.timePickerIncrement;
+                optionDate = optionDate.clone().add(this.timePickerIncrement - remainder, "minutes");
+            }
+            this.startDate = optionDate;
+        }
 
-        if (typeof options.endDate === 'object')
-            this.endDate = moment(options.endDate);
+        if (typeof options.endDate === 'object') {
+            var optionDate = moment(options.endDate);
+            if (optionDate) {
+                var remainder = optionDate.minute() % this.timePickerIncrement;
+                optionDate = optionDate.clone().add(this.timePickerIncrement - remainder, "minutes");
+            }
+            this.endDate = optionDate;
+        }
 
         if (typeof options.minDate === 'object')
             this.minDate = moment(options.minDate);
@@ -254,9 +284,6 @@
         if (typeof options.timePickerSeconds === 'boolean')
             this.timePickerSeconds = options.timePickerSeconds;
 
-        if (typeof options.timePickerIncrement === 'number')
-            this.timePickerIncrement = options.timePickerIncrement;
-
         if (typeof options.timePicker24Hour === 'boolean')
             this.timePicker24Hour = options.timePicker24Hour;
 
@@ -277,6 +304,12 @@
 
         if (typeof options.alwaysShowCalendars === 'boolean')
             this.alwaysShowCalendars = options.alwaysShowCalendars;
+
+        if (typeof options.rangeInDate === 'boolean')
+            this.rangeInDate = options.rangeInDate;
+
+        if (typeof options.minRange === 'number')
+            this.minRange = options.minRange;
 
         // update day names order to firstDay
         if (this.locale.firstDay != 0) {
@@ -1278,6 +1311,27 @@
                 }
                 this.endDate = null;
                 this.setStartDate(date.clone());
+                if (this.rangeInDate) {
+                    endDate = date.clone();
+                    if (this.timePicker) {
+                        var hour = parseInt(this.container.find('.right .hourselect').val(), 10);
+                        if (!this.timePicker24Hour) {
+                            var ampm = this.container.find('.right .ampmselect').val();
+                            if (ampm === 'PM' && hour < 12)
+                                hour += 12;
+                            if (ampm === 'AM' && hour === 12)
+                                hour = 0;
+                        }
+                        var minute = parseInt(this.container.find('.right .minuteselect').val(), 10);
+                        var second = this.timePickerSeconds ? parseInt(this.container.find('.right .secondselect').val(), 10) : 0;
+                        endDate = endDate.clone().hour(hour).minute(minute).second(second);
+                    }
+                    this.setEndDate(endDate);
+                    this.calculateChosenLabel();
+                    if (this.autoApply) {
+                        this.clickApply();
+                    }
+                }
             } else if (!this.endDate && date.isBefore(this.startDate)) {
                 //special case: clicking the same date for start/end,
                 //but the time of the end date is before the start date
@@ -1425,10 +1479,12 @@
                 start.minute(minute);
                 start.second(second);
                 this.setStartDate(start);
+                var cloneDate = start.clone();
+                cloneDate.add(this.minRange, 'minutes');
                 if (this.singleDatePicker) {
                     this.endDate = this.startDate.clone();
-                } else if (this.endDate && this.endDate.format('YYYY-MM-DD') == start.format('YYYY-MM-DD') && this.endDate.isBefore(start)) {
-                    this.setEndDate(start.clone());
+                } else if (this.endDate && this.endDate.format('YYYY-MM-DD') == start.format('YYYY-MM-DD') && this.endDate.isBefore(cloneDate)) {
+                    this.setEndDate(cloneDate);
                 }
             } else if (this.endDate) {
                 var end = this.endDate.clone();
